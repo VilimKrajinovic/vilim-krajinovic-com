@@ -3,6 +3,11 @@ import React, { useState, ReactPropTypes, Component } from 'react'
 import * as THREE from 'three'
 import Renderer from 'components/Renderer/Renderer'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer'
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass'
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass'
+
+import RippleShader from 'components/Hero/RippleShader'
 
 type Ripple = {
   age: number
@@ -26,6 +31,8 @@ export class Scene extends React.Component {
   linear: Function
   easeOutQuart: Function
   rippleWasRendering: Boolean = false
+
+  finalComposer: EffectComposer
 
   clock: THREE.Clock = new THREE.Clock()
 
@@ -66,6 +73,7 @@ export class Scene extends React.Component {
           return
         }
 
+        console.log(this.easeOutQuart)
         const size = this.rippleCanvas.height * this.easeOutQuart(ripple.age)
 
         const alpha =
@@ -120,7 +128,6 @@ export class Scene extends React.Component {
   }
 
   initScene = (renderer, gl) => {
-    this.ripples = []
     this.rippleCanvas = document.createElement('canvas')
     this.rippleCanvas.width = this.rippleCanvas.style.width = window.innerWidth
     this.rippleCanvas.height = this.rippleCanvas.style.height =
@@ -131,7 +138,10 @@ export class Scene extends React.Component {
     this.rippleTexture.minFilter = THREE.NearestFilter
     this.rippleTexture.magFilter = THREE.NearestFilter
 
-    window.addEventListener('click', this.addRipple)
+    window.addEventListener('click', this.addRipple.bind(this))
+
+    this.linear = (t) => t
+    this.easeOutQuart = (t) => 1 - --t * t * t * t
 
     this.material = new THREE.MeshPhongMaterial({
       color: '#ffffff',
@@ -168,8 +178,17 @@ export class Scene extends React.Component {
     this.scene.add(light2)
     this.scene.add(light3)
 
-    this.camera = new THREE.PerspectiveCamera(75, 16 / 9, 0.1, 1000)
-    this.camera.position.z = 4
+    this.camera = new THREE.PerspectiveCamera(20, 16 / 9, 0.1, 20)
+    this.camera.position.z = 10
+
+    this.finalComposer = new EffectComposer(renderer)
+    this.finalComposer.addPass(new RenderPass(this.scene, this.camera))
+
+    const ripplePass = new ShaderPass(RippleShader())
+    ripplePass.uniforms.tRipple.value = this.rippleTexture
+    ripplePass.needsSwap = false
+    this.finalComposer.addPass(ripplePass)
+
     renderer.setClearColor('#000000')
   }
 
@@ -178,7 +197,8 @@ export class Scene extends React.Component {
     if (this.modelContainer) {
       this.modelContainer.rotation.y += 0.001
     }
-    renderer.render(this.scene, this.camera)
+
+    this.finalComposer.render()
     this.renderRipples(delta)
   }
 

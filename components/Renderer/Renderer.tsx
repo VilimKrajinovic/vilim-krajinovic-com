@@ -26,6 +26,7 @@ class Renderer extends React.Component<Props> {
       canvas: this.canvas,
       antialias: true,
     })
+    this.renderer.setSize(window.innerWidth, window.innerHeight)
     this.gl = this.renderer.context
     this.props.initScene(this.renderer, this.gl)
     this.frameId = requestAnimationFrame(this.handleAnimationFrame)

@@ -7,7 +7,11 @@ type Props = {}
 const Hero: React.FunctionComponent<Props> = () => {
   return (
     <div className={style.centered}>
-      <div className={style.hero}></div>
+      <div className={style.hero}>
+        <h1>Vilim Krajinovic</h1>
+        <h3>Software developer</h3>
+        <SocialLinks />
+      </div>
     </div>
   )
 }
