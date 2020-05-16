@@ -1,3 +1,4 @@
+import React from 'react'
 import ReactResizeDetector from 'react-resize-detector'
 import style from './Renderer.module.scss'
 import * as THREE from 'three'
@@ -8,10 +9,11 @@ type Props = {
   renderScene: Function
 }
 class Renderer extends React.Component<Props> {
-  canvas
+  canvas: HTMLCanvasElement
   renderer: THREE.WebGLRenderer
-  gl
-  frameId
+  gl: WebGLRenderingContext
+  frameId: number
+
   static defaultProps = {
     initScene: () => {},
     onResize: () => {},
@@ -19,7 +21,7 @@ class Renderer extends React.Component<Props> {
   }
 
   componentDidMount = () => {
-    this.canvas = document.getElementById('canvas')
+    this.canvas = document.getElementById('canvas') as HTMLCanvasElement
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
       antialias: true,
@@ -33,7 +35,7 @@ class Renderer extends React.Component<Props> {
     cancelAnimationFrame(this.frameId)
   }
 
-  handleResize = (width, height) => {
+  handleResize = (width: number, height: number) => {
     this.renderer.setSize(width, height)
     this.props.onResize(this.renderer, this.gl, { width, height })
   }

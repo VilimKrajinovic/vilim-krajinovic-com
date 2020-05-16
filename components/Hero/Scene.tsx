@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import Renderer from 'components/Renderer/Renderer'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 
-export class Scene extends React.Component<> {
+export class Scene extends React.Component {
   scene: THREE.Scene
   cube: THREE.Mesh
   camera: THREE.PerspectiveCamera
