@@ -4,6 +4,12 @@ import * as THREE from 'three'
 import Renderer from 'components/Renderer/Renderer'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 
+type Ripple = {
+  age: number
+  position: THREE.Vector2
+  color: THREE.Vector2
+}
+
 export class Scene extends React.Component {
   scene: THREE.Scene
   cube: THREE.Mesh
@@ -11,12 +17,122 @@ export class Scene extends React.Component {
   material: THREE.MeshPhongMaterial
   modelContainer: THREE.Group
 
+  rippleCanvas: HTMLCanvasElement
+  rippleContext: CanvasRenderingContext2D
+  rippleTexture: THREE.Texture
+  ripples: Ripple[] = []
+  RIPPLE_SPEED = 0.3
+  RIPPLE_PEAK = 0.2
+  linear: Function
+  easeOutQuart: Function
+  rippleWasRendering: Boolean = false
+
+  clock: THREE.Clock = new THREE.Clock()
+
   onResize = (renderer, gl, { width, height }) => {
     this.camera.aspect = width / height
     this.camera.updateProjectionMatrix()
   }
 
+  addRipple(event) {
+    console.log(this.ripples)
+    this.ripples.push({
+      age: 0,
+      position: new THREE.Vector2(event.clientX, event.clientY),
+      color: new THREE.Vector2(
+        (event.clientX / window.innerWidth) * 255,
+        (event.clientY / window.innerHeight) * 255
+      ),
+    })
+  }
+
+  renderRipples(delta) {
+    if (this.ripples.length) {
+      this.rippleWasRendering = true
+
+      this.rippleContext.fillStyle = 'rgb(128, 128, 0)'
+      this.rippleContext.fillRect(
+        0,
+        0,
+        this.rippleCanvas.width,
+        this.rippleCanvas.height
+      )
+
+      this.ripples.forEach((ripple, i) => {
+        ripple.age += delta * this.RIPPLE_SPEED
+
+        if (ripple.age > 1) {
+          this.ripples.splice(i, 1)
+          return
+        }
+
+        const size = this.rippleCanvas.height * this.easeOutQuart(ripple.age)
+
+        const alpha =
+          ripple.age < this.RIPPLE_PEAK
+            ? this.easeOutQuart(ripple.age / this.RIPPLE_PEAK)
+            : 1 -
+              this.linear(
+                (ripple.age - this.RIPPLE_PEAK) / (1 - this.RIPPLE_PEAK)
+              )
+
+        let grd = this.rippleContext.createRadialGradient(
+          ripple.position.x,
+          ripple.position.y,
+          size * 0.25,
+          ripple.position.x,
+          ripple.position.y,
+          size
+        )
+
+        grd.addColorStop(1, `rgba(128, 128, 0, 0.5)`)
+        grd.addColorStop(
+          0.8,
+          `rgba(${ripple.color.x}, ${ripple.color.y}, ${16 * alpha}, ${alpha})`
+        )
+        grd.addColorStop(0, `rgba(0, 0, 0, 0)`)
+
+        this.rippleContext.beginPath()
+        this.rippleContext.fillStyle = grd
+        this.rippleContext.arc(
+          ripple.position.x,
+          ripple.position.y,
+          size,
+          0,
+          Math.PI * 2
+        )
+        this.rippleContext.fill()
+      })
+
+      this.rippleTexture.needsUpdate = true
+    } else if (this.rippleWasRendering) {
+      this.rippleContext.fillStyle = 'rgb(128, 128, 0)'
+      this.rippleContext.fillRect(
+        0,
+        0,
+        this.rippleCanvas.width,
+        this.rippleCanvas.height
+      )
+
+      this.rippleWasRendering = false
+      this.rippleTexture.needsUpdate = true
+    }
+  }
+
   initScene = (renderer, gl) => {
+    this.ripples = []
+    this.rippleCanvas = document.createElement('canvas')
+    this.rippleCanvas.width = this.rippleCanvas.style.width = window.innerWidth
+    this.rippleCanvas.height = this.rippleCanvas.style.height =
+      window.innerHeight
+
+    this.rippleContext = this.rippleCanvas.getContext('2d')
+    this.rippleTexture = new THREE.Texture(this.rippleCanvas)
+    this.rippleTexture.minFilter = THREE.NearestFilter
+    this.rippleTexture.magFilter = THREE.NearestFilter
+
+    window.addEventListener('click', this.addRipple)
+
     this.material = new THREE.MeshPhongMaterial({
       color: '#ffffff',
       specular: '#000000',
@@ -58,10 +174,12 @@ export class Scene extends React.Component {
   }
 
   renderScene = (renderer, gl) => {
+    const delta = this.clock.getDelta()
     if (this.modelContainer) {
       this.modelContainer.rotation.y += 0.001
     }
     renderer.render(this.scene, this.camera)
+    this.renderRipples(delta)
   }
 
   render() {
