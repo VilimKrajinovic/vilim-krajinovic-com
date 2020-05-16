@@ -1,0 +1,45 @@
+html {
+  background: black;
+}
+
+body.light {
+  -bg: #ffffff;
+}
+
+body.dark {
+  --bg: #000000;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  color: #ffffff;
+  overflow-x: hidden;
+  overflow-y: scroll;
+
+  font-family: Roboto;
+  font-weight: 100;
+
+  background: var(--bg);
+}
+
+html,
+body {
+  min-height: 100vh;
+}
+
+*,
+::after,
+::before {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+}
+
+@font-face {
+  font-family: Roboto;
+  src: url('./public/fonts/Roboto-Thin.ttf');
+}

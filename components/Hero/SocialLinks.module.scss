@@ -1,0 +1,19 @@
+$icon-size: 24px;
+$icon-padding-top: 24px;
+$icon-padding: 8px;
+
+.container {
+  display: flex;
+}
+
+.container a {
+  width: ($icon-size + $icon-padding * 2);
+  height: ($icon-size + $icon-padding * 2);
+  text-align: center;
+  padding: $icon-padding-top $icon-padding;
+}
+
+.container a svg {
+  margin: auto;
+  display: block;
+}
