@@ -129,9 +129,8 @@ export class Scene extends React.Component {
 
   initScene = (renderer, gl) => {
     this.rippleCanvas = document.createElement('canvas')
-    this.rippleCanvas.width = this.rippleCanvas.style.width = window.innerWidth
-    this.rippleCanvas.height = this.rippleCanvas.style.height =
-      window.innerHeight
+    this.rippleCanvas.width = window.innerWidth
+    this.rippleCanvas.height = window.innerHeight
 
     this.rippleContext = this.rippleCanvas.getContext('2d')
     this.rippleTexture = new THREE.Texture(this.rippleCanvas)
@@ -185,6 +184,7 @@ export class Scene extends React.Component {
     this.finalComposer.addPass(new RenderPass(this.scene, this.camera))
 
     const ripplePass = new ShaderPass(RippleShader())
+    //@ts-ignore
     ripplePass.uniforms.tRipple.value = this.rippleTexture
     ripplePass.needsSwap = false
     this.finalComposer.addPass(ripplePass)
