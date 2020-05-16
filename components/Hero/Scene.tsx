@@ -6,8 +6,10 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass'
+import debounce from 'lodash.debounce'
 
 import RippleShader from 'components/Hero/RippleShader'
+import { WebGLRenderer } from 'three'
 
 type Ripple = {
   age: number
@@ -36,13 +38,15 @@ export class Scene extends React.Component {
 
   clock: THREE.Clock = new THREE.Clock()
 
-  onResize = (renderer, gl, { width, height }) => {
+  onResize = (renderer: WebGLRenderer, gl, { width, height }) => {
+    this.rippleCanvas.width = width
+    this.rippleCanvas.height = height
+    renderer.setSize(window.innerWidth, window.innerHeight)
     this.camera.aspect = width / height
     this.camera.updateProjectionMatrix()
   }
 
   addRipple(event) {
-    console.log(this.ripples)
     this.ripples.push({
       age: 0,
       position: new THREE.Vector2(event.clientX, event.clientY),
@@ -73,7 +77,6 @@ export class Scene extends React.Component {
           return
         }
 
-        console.log(this.easeOutQuart)
         const size = this.rippleCanvas.height * this.easeOutQuart(ripple.age)
 
         const alpha =
