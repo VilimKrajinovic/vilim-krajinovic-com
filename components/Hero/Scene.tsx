@@ -80,6 +80,7 @@ export class Scene extends React.Component {
       renderer,
       this.occlusionRenderTarget
     )
+    //@ts-ignore
     this.occlusionComposer.renderToScreen = false
     this.occlusionComposer.addPass(
       new RenderPass(this.scene, this.occlusionCamera)
@@ -135,7 +136,9 @@ export class Scene extends React.Component {
         })
 
         occlusionScene.traverse((node) => {
+          //@ts-ignore
           if (node.material) {
+            //@ts-ignore
             node.material = blackMaterial
           }
           if (node.layers) {
@@ -167,6 +170,7 @@ export class Scene extends React.Component {
     this.scene.add(light3)
 
     const additivePass = new ShaderPass(AdditiveShader())
+    //@ts-ignore
     additivePass.uniforms.tAdd.value = this.occlusionRenderTarget.texture
 
     const ripplePass = new ShaderPass(RippleShader())
@@ -179,6 +183,7 @@ export class Scene extends React.Component {
       window.innerHeight
     )
     this.effectComposer = new EffectComposer(renderer, this.effectRenderTarget)
+    //@ts-ignore
     this.effectComposer.renderToScreen = false
     this.effectComposer.addPass(additivePass)
     this.effectComposer.addPass(ripplePass)
@@ -308,6 +313,7 @@ export class Scene extends React.Component {
     this.lightCylinderMaterial.uniforms.spotPosition.value = this.lightCone.position
     const lightConePosition = this.lightCone.position.clone()
     const vector = lightConePosition.project(this.occlusionCamera)
+    //@ts-ignore
     this.lightScatteringPass.uniforms.lightPosition.value.set(
       (vector.x + 1) / 2,
       (vector.y + 1) / 2
