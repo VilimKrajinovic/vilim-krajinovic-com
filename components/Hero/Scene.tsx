@@ -1,15 +1,15 @@
-import React, { useState, ReactPropTypes, Component } from 'react'
-
-import * as THREE from 'three'
+import RippleShader from 'components/Hero/shaders/RippleShader'
 import Renderer from 'components/Renderer/Renderer'
+import React from 'react'
+import * as THREE from 'three'
+import { WebGLRenderer, WebGLRenderTarget } from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass'
-import debounce from 'lodash.debounce'
-
-import RippleShader from 'components/Hero/RippleShader'
-import { WebGLRenderer } from 'three'
+import VolumetricLightCylinder from 'components/Hero/shaders/VolumetricLightCylinder'
+import VolumetricLightScattering from 'components/Hero/shaders/VolumetricLightScattering'
+import AdditiveShader from 'components/Hero/shaders/AdditiveShader'
 
 type Ripple = {
   age: number
@@ -23,6 +23,7 @@ export class Scene extends React.Component {
   camera: THREE.PerspectiveCamera
   material: THREE.MeshPhongMaterial
   modelContainer: THREE.Group
+  backLight: THREE.PointLight
 
   rippleCanvas: HTMLCanvasElement
   rippleContext: CanvasRenderingContext2D
@@ -35,14 +36,181 @@ export class Scene extends React.Component {
   rippleWasRendering: Boolean = false
 
   finalComposer: EffectComposer
-
   clock: THREE.Clock = new THREE.Clock()
 
+  DEFAULT_LAYER = 0
+  OCCLUSION_LAYER = 1
+
+  occlusionCamera: THREE.PerspectiveCamera
+  occlusionRenderTarget: THREE.WebGLRenderTarget
+  occlusionComposer: EffectComposer
+  lightScatteringPass: ShaderPass
+  lightGeometry: THREE.CylinderGeometry
+  lightCone: THREE.Mesh
+  lightConeTarget: THREE.Vector3
+  lightCylinderMaterial: THREE.ShaderMaterial
+
+  effectComposer: EffectComposer
+  effectRenderTarget: WebGLRenderTarget
+
+  initScene = (renderer, gl) => {
+    this.scene = new THREE.Scene()
+
+    this.camera = new THREE.PerspectiveCamera(20, 16 / 9, 0.1, 100)
+    this.camera.position.z = 10
+
+    this.rippleCanvas = document.createElement('canvas')
+    this.rippleCanvas.width = window.innerWidth
+    this.rippleCanvas.height = window.innerHeight
+
+    this.rippleContext = this.rippleCanvas.getContext('2d')
+    this.rippleTexture = new THREE.Texture(this.rippleCanvas)
+    this.rippleTexture.minFilter = THREE.NearestFilter
+    this.rippleTexture.magFilter = THREE.NearestFilter
+    this.linear = (t) => t
+    this.easeOutQuart = (t) => 1 - --t * t * t * t
+
+    this.occlusionCamera = this.camera.clone()
+    this.occlusionCamera.layers.set(this.OCCLUSION_LAYER)
+    this.occlusionRenderTarget = new THREE.WebGLRenderTarget(
+      window.innerWidth,
+      window.innerHeight
+    )
+    this.occlusionComposer = new EffectComposer(
+      renderer,
+      this.occlusionRenderTarget
+    )
+    this.occlusionComposer.renderToScreen = false
+    this.occlusionComposer.addPass(
+      new RenderPass(this.scene, this.occlusionCamera)
+    )
+    this.lightScatteringPass = new ShaderPass(VolumetricLightScattering())
+    this.lightScatteringPass.needsSwap = false
+    this.occlusionComposer.addPass(this.lightScatteringPass)
+
+    this.lightGeometry = new THREE.CylinderGeometry(3, 6, 15, 32, 6, true)
+    this.lightGeometry.applyMatrix4(
+      new THREE.Matrix4().makeTranslation(
+        0,
+        -this.lightGeometry.parameters.height / 2,
+        0
+      )
+    )
+    this.lightGeometry.applyMatrix4(
+      new THREE.Matrix4().makeRotationX(-Math.PI / 2)
+    )
+    this.lightCylinderMaterial = new THREE.ShaderMaterial(
+      VolumetricLightCylinder()
+    )
+    this.lightConeTarget = new THREE.Vector3(0, 0, -8)
+    this.lightCone = new THREE.Mesh(
+      this.lightGeometry,
+      this.lightCylinderMaterial
+    )
+    this.lightCone.position.set(-5, 5, -8)
+    this.lightCone.layers.set(this.OCCLUSION_LAYER)
+    this.lightCylinderMaterial.uniforms.spotPosition.value = this.lightCone.position
+    this.scene.add(this.lightCone)
+
+    this.material = new THREE.MeshPhongMaterial({
+      color: '#ffffff',
+      specular: '#000000',
+    })
+
+    const loader = new GLTFLoader()
+    this.modelContainer = new THREE.Group()
+    this.modelContainer.layers.enable(this.OCCLUSION_LAYER)
+    this.scene.add(this.modelContainer)
+
+    loader.load(
+      './VK.glb',
+      (gltf) => {
+        const gltfScene = gltf.scene
+        gltfScene.scale.set(10, 10, 10)
+        this.modelContainer.add(gltfScene)
+
+        const occlusionScene = gltfScene.clone()
+        const blackMaterial = new THREE.MeshBasicMaterial({
+          color: new THREE.Color(0x000000),
+        })
+
+        occlusionScene.traverse((node) => {
+          if (node.material) {
+            node.material = blackMaterial
+          }
+          if (node.layers) {
+            node.layers.set(this.OCCLUSION_LAYER)
+          }
+        })
+        this.modelContainer.add(occlusionScene)
+      },
+      undefined,
+      console.error
+    )
+
+    this.backLight = new THREE.PointLight('#00aaff', 1.0)
+    this.backLight.position.set(-5, 5, -5)
+    this.backLight.distance = 20
+    const light2 = new THREE.PointLight('#00aaff', 1.0)
+    light2.position.set(-5, 0, 5)
+    light2.distance = 20
+    const light3 = new THREE.PointLight('#ff00ff', 1.0)
+    light3.position.set(5, 0, 0)
+    light3.distance = 20
+
+    this.backLight.layers.enable(this.OCCLUSION_LAYER)
+    light2.layers.enable(this.OCCLUSION_LAYER)
+    light3.layers.enable(this.OCCLUSION_LAYER)
+
+    this.scene.add(this.backLight)
+    this.scene.add(light2)
+    this.scene.add(light3)
+
+    const additivePass = new ShaderPass(AdditiveShader())
+    additivePass.uniforms.tAdd.value = this.occlusionRenderTarget.texture
+
+    const ripplePass = new ShaderPass(RippleShader())
+    //@ts-ignore
+    ripplePass.uniforms.tRipple.value = this.rippleTexture
+    ripplePass.needsSwap = false
+
+    this.effectRenderTarget = new WebGLRenderTarget(
+      window.innerWidth,
+      window.innerHeight
+    )
+    this.effectComposer = new EffectComposer(renderer, this.effectRenderTarget)
+    this.effectComposer.renderToScreen = false
+    this.effectComposer.addPass(additivePass)
+    this.effectComposer.addPass(ripplePass)
+
+    this.finalComposer = new EffectComposer(renderer)
+    this.finalComposer.addPass(new RenderPass(this.scene, this.camera))
+    this.finalComposer.addPass(additivePass)
+    this.finalComposer.addPass(ripplePass)
+
+    renderer.setClearColor('#000000')
+
+    window.addEventListener('click', this.addRipple.bind(this))
+    window.addEventListener('mousemove', this.mouseMove.bind(this))
+  }
+
+  mouseMove(e) {
+    this.lightCone.position.x = 5 * ((e.clientX / window.innerWidth) * 2 - 1)
+    this.backLight.position.x = this.lightCone.position.x
+  }
+
   onResize = (renderer: WebGLRenderer, gl, { width, height }) => {
+    this.occlusionComposer.setSize(
+      window.innerWidth * 0.5,
+      window.innerHeight * 0.5
+    )
+
     this.rippleCanvas.width = width
     this.rippleCanvas.height = height
     renderer.setSize(window.innerWidth, window.innerHeight)
     this.camera.aspect = width / height
+    this.occlusionCamera.aspect = this.camera.aspect
+    this.occlusionCamera.updateProjectionMatrix()
     this.camera.updateProjectionMatrix()
   }
 
@@ -130,78 +298,30 @@ export class Scene extends React.Component {
     }
   }
 
-  initScene = (renderer, gl) => {
-    this.rippleCanvas = document.createElement('canvas')
-    this.rippleCanvas.width = window.innerWidth
-    this.rippleCanvas.height = window.innerHeight
-
-    this.rippleContext = this.rippleCanvas.getContext('2d')
-    this.rippleTexture = new THREE.Texture(this.rippleCanvas)
-    this.rippleTexture.minFilter = THREE.NearestFilter
-    this.rippleTexture.magFilter = THREE.NearestFilter
-
-    window.addEventListener('click', this.addRipple.bind(this))
-
-    this.linear = (t) => t
-    this.easeOutQuart = (t) => 1 - --t * t * t * t
-
-    this.material = new THREE.MeshPhongMaterial({
-      color: '#ffffff',
-      specular: '#000000',
-    })
-    this.scene = new THREE.Scene()
-
-    const loader = new GLTFLoader()
-    this.modelContainer = new THREE.Group()
-    this.scene.add(this.modelContainer)
-
-    loader.load(
-      './VK.glb',
-      (gltf) => {
-        this.modelContainer.add(gltf.scene)
-        this.modelContainer.scale.set(10, 10, 10)
-        // this.model.rotateX(90)
-      },
-      undefined,
-      console.error
-    )
-
-    const light1 = new THREE.PointLight('#00aaff', 1.0)
-    light1.position.set(-5, 5, -5)
-    light1.distance = 20
-    const light2 = new THREE.PointLight('#00aaff', 1.0)
-    light2.position.set(-5, 0, 5)
-    light2.distance = 20
-    const light3 = new THREE.PointLight('#ff00ff', 1.0)
-    light3.position.set(5, 0, 0)
-    light3.distance = 20
-
-    this.scene.add(light1)
-    this.scene.add(light2)
-    this.scene.add(light3)
-
-    this.camera = new THREE.PerspectiveCamera(20, 16 / 9, 0.1, 20)
-    this.camera.position.z = 10
-
-    this.finalComposer = new EffectComposer(renderer)
-    this.finalComposer.addPass(new RenderPass(this.scene, this.camera))
-
-    const ripplePass = new ShaderPass(RippleShader())
-    //@ts-ignore
-    ripplePass.uniforms.tRipple.value = this.rippleTexture
-    ripplePass.needsSwap = false
-    this.finalComposer.addPass(ripplePass)
-
-    renderer.setClearColor('#000000')
-  }
-
-  renderScene = (renderer, gl) => {
+  renderScene = (renderer: WebGLRenderer, gl) => {
     const delta = this.clock.getDelta()
     if (this.modelContainer) {
-      this.modelContainer.rotation.y += 0.001
+      this.modelContainer.rotation.y += delta * 0.5
     }
 
+    this.lightCone.lookAt(this.lightConeTarget)
+    this.lightCylinderMaterial.uniforms.spotPosition.value = this.lightCone.position
+    const lightConePosition = this.lightCone.position.clone()
+    const vector = lightConePosition.project(this.occlusionCamera)
+    this.lightScatteringPass.uniforms.lightPosition.value.set(
+      (vector.x + 1) / 2,
+      (vector.y + 1) / 2
+    )
+
+    renderer.setRenderTarget(this.occlusionRenderTarget)
+    this.occlusionComposer.render()
+
+    renderer.setRenderTarget(this.effectRenderTarget)
+    this.effectComposer.render()
+
+    renderer.setRenderTarget(null)
     this.finalComposer.render()
+
     this.renderRipples(delta)
   }
 
