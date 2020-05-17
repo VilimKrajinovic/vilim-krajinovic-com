@@ -151,13 +151,13 @@ export class Scene extends React.Component {
       console.error
     )
 
-    this.backLight = new THREE.PointLight('#00aaff', 1.0)
+    this.backLight = new THREE.PointLight(0x00aaff, 1.0)
     this.backLight.position.set(-5, 5, -5)
     this.backLight.distance = 20
-    const light2 = new THREE.PointLight('#00aaff', 1.0)
+    const light2 = new THREE.PointLight(0x00aaff, 1.0)
     light2.position.set(-5, 0, 5)
     light2.distance = 20
-    const light3 = new THREE.PointLight('#ff00ff', 1.0)
+    const light3 = new THREE.PointLight(0xff00ff, 1.0)
     light3.position.set(5, 0, 0)
     light3.distance = 20
 
@@ -322,8 +322,8 @@ export class Scene extends React.Component {
     renderer.setRenderTarget(this.occlusionRenderTarget)
     this.occlusionComposer.render()
 
-    renderer.setRenderTarget(this.effectRenderTarget)
-    this.effectComposer.render()
+    // renderer.setRenderTarget(this.effectRenderTarget)
+    // this.effectComposer.render()
 
     renderer.setRenderTarget(null)
     this.finalComposer.render()
