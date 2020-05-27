@@ -2,6 +2,7 @@ import React from 'react'
 import ReactResizeDetector from 'react-resize-detector'
 import style from './Renderer.module.scss'
 import * as THREE from 'three'
+import debounce from 'lodash.debounce'
 
 type Props = {
   initScene: Function
@@ -30,14 +31,18 @@ class Renderer extends React.Component<Props> {
     this.gl = this.renderer.context
     this.props.initScene(this.renderer, this.gl)
     this.frameId = requestAnimationFrame(this.handleAnimationFrame)
+    addEventListener('resize', debounce(this.handleResize, 50), false)
   }
 
   componentWillUnmount = () => {
     cancelAnimationFrame(this.frameId)
   }
 
-  handleResize = (width: number, height: number) => {
+  handleResize = () => {
+    const width = window.innerWidth
+    const height = window.innerHeight
     this.renderer.setSize(width, height)
+    debugger
     this.props.onResize(this.renderer, this.gl, { width, height })
   }
 
@@ -50,11 +55,6 @@ class Renderer extends React.Component<Props> {
     return (
       <>
         <canvas id={'canvas'} className={style.canvas} />
-        <ReactResizeDetector
-          onResize={this.handleResize}
-          handleWidth={true}
-          handleHeight={true}
-        />
       </>
     )
   }
