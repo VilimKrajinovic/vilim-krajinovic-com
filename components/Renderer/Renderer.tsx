@@ -31,6 +31,7 @@ class Renderer extends React.Component<Props> {
     this.gl = this.renderer.context
     this.props.initScene(this.renderer, this.gl)
     this.frameId = requestAnimationFrame(this.handleAnimationFrame)
+    this.handleResize()
     addEventListener('resize', debounce(this.handleResize, 50), false)
   }
 
@@ -42,7 +43,6 @@ class Renderer extends React.Component<Props> {
     const width = window.innerWidth
     const height = window.innerHeight
     this.renderer.setSize(width, height)
-    debugger
     this.props.onResize(this.renderer, this.gl, { width, height })
   }
 

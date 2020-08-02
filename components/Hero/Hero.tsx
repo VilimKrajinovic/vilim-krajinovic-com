@@ -8,8 +8,8 @@ const Hero: React.FunctionComponent<Props> = () => {
   return (
     <div className={style.centered}>
       <div className={style.hero}>
-        <h1>Vilim Krajinović</h1>
-        <h3>Software developer</h3>
+        <h1 className={style.header}>Vilim Krajinović</h1>
+        <h3 className={style.description}>Software developer</h3>
         <SocialLinks />
       </div>
     </div>
